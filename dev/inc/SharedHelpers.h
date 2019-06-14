@@ -9,7 +9,7 @@ class SharedHelpers
 {
 public:
     static bool IsAnimationsEnabled();
-    static winrt::IInspectable FindResourceOrNull(const std::wstring_view& resource, const winrt::ResourceDictionary& resources);
+    static winrt::IInspectable FindResource(const std::wstring_view& resource, const winrt::ResourceDictionary& resources, const winrt::IInspectable& defaultValue = nullptr);
     static bool IsInDesignMode();
     static bool IsInDesignModeV1();
     static bool IsInDesignModeV2();
@@ -189,6 +189,18 @@ public:
         return nullptr;
     }
 
+    static bool IsFrameworkElementLoaded(winrt::FrameworkElement const& frameworkElement)
+    {
+        if (IsRS5OrHigher())
+        {
+            return frameworkElement.IsLoaded();
+        }
+        else
+        {
+            return winrt::VisualTreeHelper::GetParent(frameworkElement) != nullptr;
+        }
+    }
+
     template<typename AncestorType>
     static AncestorType GetAncestorOfType(winrt::DependencyObject const& firstGuess)
     {
@@ -210,7 +222,14 @@ public:
         }
     }
 
+#ifdef ICONSOURCE_INCLUDED
     static winrt::IconElement MakeIconElementFrom(winrt::IconSource const& iconSource);
+#endif
+
+    static void SetBinding(
+        std::wstring_view const& pathString,
+        winrt::DependencyObject const& target,
+        winrt::DependencyProperty const& targetProperty);
 
     static void SetBinding(
         winrt::IInspectable const& source,

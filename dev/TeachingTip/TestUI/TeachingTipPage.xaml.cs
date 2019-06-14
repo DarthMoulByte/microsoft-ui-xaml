@@ -37,6 +37,8 @@ namespace MUXControlsTestApp
         VisualTree = 0,
         Resources = 1
     }
+
+    [TopLevelTestPage(Name = "TeachingTip", Icon = "TeachingTip.png")]
     public sealed partial class TeachingTipPage : TestPage, INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged;
@@ -66,7 +68,6 @@ namespace MUXControlsTestApp
             this.TeachingTipInVisualTree.Closed += TeachingTipInVisualTree_Closed;
             this.TeachingTipInResources.Closed += TeachingTipInResources_Closed;
             this.ContentScrollViewer.ViewChanged += ContentScrollViewer_ViewChanged;
-            this.TeachingTipInResources.IsOpen = true;
         }
 
         private void TeachingTipInResources_Closed(TeachingTip sender, TeachingTipClosedEventArgs args)
@@ -909,7 +910,7 @@ namespace MUXControlsTestApp
             var selectedItem = ((ComboBoxItem)PageThemeComboBox.SelectedItem);
             if (String.Equals(selectedItem?.Content, "Light"))
             {
-                RequestedTheme = ElementTheme.Default;
+                RequestedTheme = ElementTheme.Light;
             }
             else if (String.Equals(selectedItem?.Content, "Dark"))
             {

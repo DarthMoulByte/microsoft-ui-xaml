@@ -1,16 +1,32 @@
+[CmdLetBinding()]
+Param(
+    [Parameter(Mandatory = $true)] 
+    [int]$MinimumExpectedTestsExecutedCount
+)
+
+
 $azureDevOpsRestApiHeaders = @{
     "Accept"="application/json"
     "Authorization"="Basic $([System.Convert]::ToBase64String([System.Text.ASCIIEncoding]::ASCII.GetBytes(":$($env:SYSTEM_ACCESSTOKEN)")))"
 }
 
+. "$PSScriptRoot/AzurePipelinesHelperScripts.ps1"
+
 Write-Host "Checking test results..."
 
-$testRuns = Invoke-RestMethod -Uri "https://dev.azure.com/ms/microsoft-ui-xaml/_apis/test/runs?buildUri=$($env:BUILD_BUILDURI)" -Method Get -Headers $azureDevOpsRestApiHeaders
+$queryUri = GetQueryTestRunsUri
+Write-Host "queryUri = $queryUri"
+
+$testRuns = Invoke-RestMethod -Uri $queryUri -Method Get -Headers $azureDevOpsRestApiHeaders
 [System.Collections.Generic.List[string]]$failingTests = @()
 [System.Collections.Generic.List[string]]$unreliableTests = @()
 
+$totalTestsExecutedCount = 0
+
 foreach ($testRun in $testRuns.value)
 {
+    $totalTestsExecutedCount += $testRun.totalTests
+
     $testRunResultsUri = "$($testRun.url)/results?api-version=5.0"
     $testResults = Invoke-RestMethod -Uri "$($testRun.url)/results?api-version=5.0" -Method Get -Headers $azureDevOpsRestApiHeaders
         
@@ -53,7 +69,13 @@ if ($failingTests.Count -gt 0)
 "@
 }
 
-if ($failingTests.Count -gt 0)
+if($totalTestsExecutedCount -lt $MinimumExpectedTestsExecutedCount)
+{
+    Write-Host "Expected at least $MinimumExpectedTestsExecutedCount tests to be executed."
+    Write-Host "Actual executed test count is: $totalTestsExecutedCount"
+    Write-Host "##vso[task.complete result=Failed;]"
+}
+elseif ($failingTests.Count -gt 0)
 {
     Write-Host "At least one test failed."
     Write-Host "##vso[task.complete result=Failed;]"

@@ -3,7 +3,8 @@ Param(
     [string]$BuildOutputDir,
     [string]$PublishDir,
     [string]$Platform,
-    [string]$Configuration
+    [string]$Configuration,
+    [switch]$PublishAppxFiles=$false
 )
 
 $FullBuildOutput = "$($BuildOutputDir)\$($Configuration)\$($Platform)"
@@ -22,7 +23,7 @@ function PublishFile {
         {
             $ignore = New-Item -ItemType Directory $destinationDir
         }
-        Copy-Item -Force $source $destinationDir
+        Copy-Item -Recurse -Force $source $destinationDir
     }
     else
     {
@@ -37,7 +38,27 @@ PublishFile -IfExists $FullBuildOutput\Microsoft.UI.Xaml\Generic.xaml $FullPubli
 PublishFile -IfExists $FullBuildOutput\Microsoft.UI.Xaml.Design\Microsoft.UI.Xaml.Design.dll $FullPublishDir\Microsoft.UI.Xaml.Design\
 PublishFile -IfExists $BuildOutputDir\$Configuration\AnyCPU\MUXControls.Test.TAEF\MUXControls.Test.dll $FullPublishDir\Test\
 PublishFile -IfExists $BuildOutputDir\$Configuration\AnyCPU\MUXControls.ReleaseTest.TAEF\MUXControls.ReleaseTest.dll $FullPublishDir\Test\
+
+# pgosweep and vcruntime are required to run pgo instrumented test run. They are placed from the 
+# cx test app instead of releasetest.dll since these are architecture specific and the ReleaseTest assembly is AnyCPU.
+PublishFile -IfExists $FullBuildOutput\NugetPackageTestAppCX\pgosweep.exe $FullPublishDir\Test\
+PublishFile -IfExists $FullBuildOutput\NugetPackageTestAppCX\vcruntime140.dll $FullPublishDir\Test\
+# save the pgd file to artifacts, we will need this to merge pgc files and compile the next time around
+PublishFile -IfExists $FullBuildOutput\Microsoft.UI.Xaml\Microsoft.UI.Xaml.pgd $FullPublishDir\Microsoft.UI.Xaml\
+
 PublishFile -IfExists $FullBuildOutput\FrameworkPackage\*.* $FullPublishDir\FrameworkPackage
+
+if($PublishAppxFiles)
+{
+    $AppxPackagesDir = "$FullPublishDir\AppxPackages"
+
+    PublishFile -IfExists $FullBuildOutput\MUXControlsTestApp.TAEF\AppPackages\MUXControlsTestApp_Test\ $AppxPackagesDir
+    PublishFile -IfExists $FullBuildOutput\IXMPTestApp.TAEF\AppPackages\IXMPTestApp_Test\ $AppxPackagesDir
+    PublishFile -IfExists $FullBuildOutput\MUXControlsTestAppWPFPackage\AppPackages\MUXControlsTestAppWPFPackage_Test\ $AppxPackagesDir
+
+    PublishFile -IfExists $FullBuildOutput\NugetPackageTestApp\AppPackages\NugetPackageTestApp_Test\ $AppxPackagesDir
+    PublishFile -IfExists $FullBuildOutput\NugetPackageTestAppCX\AppPackages\NugetPackageTestAppCX_Test\ $AppxPackagesDir
+}
 
 # Publish pdbs:
 $symbolsOutputDir = "$($FullPublishDir)\Symbols\"

@@ -240,16 +240,31 @@ namespace Windows.UI.Xaml.Tests.MUXControls.ApiTests.RepeaterTests
         [TestMethod]
         public void NestedRepeaterWithDataTemplateScenario()
         {
+            NestedRepeaterWithDataTemplateScenario(disableAnimation: true);
+            NestedRepeaterWithDataTemplateScenario(disableAnimation: false);
+        }
+
+        private void NestedRepeaterWithDataTemplateScenario(bool disableAnimation)
+        { 
+            if (!disableAnimation && PlatformConfiguration.IsOsVersionGreaterThanOrEqual(OSVersion.Redstone5))
+            {
+                Log.Warning("This test is showing consistent issues with not scrolling enough on RS5 and 19H1 when animations are enabled, tracked by microsoft-ui-xaml#779");
+                return;
+            }
+
+            // Example of how to include debug tracing in an ApiTests.ItemsRepeater test's output.
+            // using (PrivateLoggingHelper privateLoggingHelper = new PrivateLoggingHelper("Repeater"))
+            // {
             ItemsRepeater rootRepeater = null;
             ScrollViewer scrollViewer = null;
             ManualResetEvent viewChanged = new ManualResetEvent(false);
             RunOnUIThread.Execute(() =>
             {
                 var anchorProvider = (ItemsRepeaterScrollHost)XamlReader.Load(
-                  @"<controls:ItemsRepeaterScrollHost Width='400' Height='600'
-                     xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'
-                     xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml'
-                     xmlns:controls='using:Microsoft.UI.Xaml.Controls'>
+                    @"<controls:ItemsRepeaterScrollHost Width='400' Height='600'
+                        xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'
+                        xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml'
+                        xmlns:controls='using:Microsoft.UI.Xaml.Controls'>
                     <controls:ItemsRepeaterScrollHost.Resources>
                         <DataTemplate x:Key='ItemTemplate' >
                             <TextBlock Text='{Binding}' />
@@ -267,9 +282,20 @@ namespace Windows.UI.Xaml.Tests.MUXControls.ApiTests.RepeaterTests
                 </controls:ItemsRepeaterScrollHost>");
 
                 rootRepeater = (ItemsRepeater)anchorProvider.FindName("rootRepeater");
+                rootRepeater.SizeChanged += (sender, args) =>
+                {
+                    Log.Comment($"SizeChanged: Size=({rootRepeater.ActualWidth} x {rootRepeater.ActualHeight})");
+                };
+
                 scrollViewer = (ScrollViewer)anchorProvider.FindName("scrollviewer");
+                scrollViewer.ViewChanging += (sender, args) =>
+                {
+                    Log.Comment($"ViewChanging: Next VerticalOffset={args.NextView.VerticalOffset}, Final VerticalOffset={args.FinalView.VerticalOffset}");
+                };
                 scrollViewer.ViewChanged += (sender, args) =>
                 {
+                    Log.Comment($"ViewChanged: VerticalOffset={scrollViewer.VerticalOffset}, IsIntermediate={args.IsIntermediate}");
+
                     if (!args.IsIntermediate)
                     {
                         viewChanged.Set();
@@ -292,17 +318,22 @@ namespace Windows.UI.Xaml.Tests.MUXControls.ApiTests.RepeaterTests
                 IdleSynchronizer.Wait();
                 RunOnUIThread.Execute(() =>
                 {
-                    scrollViewer.ChangeView(null, i * 200, null);
+                    Log.Comment($"Size=({rootRepeater.ActualWidth} x {rootRepeater.ActualHeight})");
+                    Log.Comment($"ChangeView(VerticalOffset={i * 200})");
+                    scrollViewer.ChangeView(null, i * 200, null, disableAnimation);
                 });
 
+                Log.Comment("Waiting for view change completion...");
                 Verify.IsTrue(viewChanged.WaitOne(DefaultWaitTimeInMS));
                 viewChanged.Reset();
+                Log.Comment("View change completed");
 
                 RunOnUIThread.Execute(() =>
                 {
                     Verify.AreEqual(i * 200, scrollViewer.VerticalOffset);
                 });
             }
+            // }
         }
 
         // ScrollViewer scrolls vertically, but there is an inner 
@@ -367,6 +398,70 @@ namespace Windows.UI.Xaml.Tests.MUXControls.ApiTests.RepeaterTests
                 Verify.IsTrue(viewChanged.WaitOne(DefaultWaitTimeInMS));
                 viewChanged.Reset();
             }
+        }
+
+
+        [TestMethod]
+        public void VerifyStoreScenarioCache()
+        {
+            ItemsRepeater rootRepeater = null;
+            RunOnUIThread.Execute(() =>
+            {
+                var scrollhost = (ItemsRepeaterScrollHost)XamlReader.Load(
+                  @" <controls:ItemsRepeaterScrollHost Width='400' Height='200'
+                        xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'
+                        xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml'
+                        xmlns:controls='using:Microsoft.UI.Xaml.Controls'>
+                        <controls:ItemsRepeaterScrollHost.Resources>
+                            <DataTemplate x:Key='ItemTemplate' >
+                                <TextBlock Text='{Binding}' Height='100' Width='100'/>
+                            </DataTemplate>
+                            <DataTemplate x:Key='GroupTemplate'>
+                                <StackPanel>
+                                    <TextBlock Text='{Binding}' />
+                                    <controls:ItemsRepeaterScrollHost>
+                                        <ScrollViewer HorizontalScrollMode='Enabled' VerticalScrollMode='Disabled' HorizontalScrollBarVisibility='Auto' VerticalScrollBarVisibility='Hidden'>
+                                            <controls:ItemsRepeater ItemTemplate='{StaticResource ItemTemplate}' ItemsSource='{Binding}'>
+                                                <controls:ItemsRepeater.Layout>
+                                                    <controls:StackLayout Orientation='Horizontal' />
+                                                </controls:ItemsRepeater.Layout>
+                                            </controls:ItemsRepeater>
+                                        </ScrollViewer>
+                                    </controls:ItemsRepeaterScrollHost>
+                                </StackPanel>
+                            </DataTemplate>
+                        </controls:ItemsRepeaterScrollHost.Resources>
+                        <ScrollViewer x:Name='scrollviewer'>
+                            <controls:ItemsRepeater x:Name='rootRepeater' ItemTemplate='{StaticResource GroupTemplate}'/>
+                        </ScrollViewer>
+                    </controls:ItemsRepeaterScrollHost>");
+
+                rootRepeater = (ItemsRepeater)scrollhost.FindName("rootRepeater");
+                
+                List<List<int>> items = new List<List<int>>();
+                for (int i = 0; i < 100; i++)
+                {
+                    items.Add(Enumerable.Range(0, 4).ToList());
+                }
+                rootRepeater.ItemsSource = items;
+                Content = scrollhost;
+            });
+
+            IdleSynchronizer.Wait();
+
+            // Verify that first items outside the visible range but in the realized range
+            // for the inner of the nested repeaters are realized.
+            RunOnUIThread.Execute(() =>
+            {
+                // Group2 will be outside the visible range but within the realized range.
+                var group2 = rootRepeater.TryGetElement(2) as StackPanel;
+                Verify.IsNotNull(group2);
+
+                var group2Repeater = ((ItemsRepeaterScrollHost)group2.Children[1]).ScrollViewer.Content as ItemsRepeater;
+                Verify.IsNotNull(group2Repeater);
+
+                Verify.IsNotNull(group2Repeater.TryGetElement(0));
+            });
         }
     }
 }

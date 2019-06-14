@@ -10,6 +10,7 @@
 #include <winrt\Windows.ApplicationModel.Activation.h>
 #include <winrt\Windows.ApplicationModel.Contacts.h>
 #include <winrt\Windows.ApplicationModel.Core.h>
+#include <winrt\Windows.ApplicationModel.DataTransfer.h>
 #include <winrt\Windows.ApplicationModel.Resources.h>
 #include <winrt\Windows.ApplicationModel.Resources.Core.h>
 #include <winrt\Windows.Devices.Input.h>
@@ -46,19 +47,28 @@
 #include <winrt\Windows.UI.Xaml.Media.Animation.h>
 #include <winrt\Windows.UI.Xaml.Media.Imaging.h>
 #include <winrt\Windows.UI.Xaml.Shapes.h>
-#ifndef BUILD_WINDOWS
 #include <winrt\Microsoft.UI.Private.Controls.h>
+#if __has_include("winrt\Microsoft.UI.Private.Media.h")
 #include <winrt\Microsoft.UI.Private.Media.h>
+#endif
+
 #include <winrt\Microsoft.UI.Xaml.Controls.h>
 #include <winrt\Microsoft.UI.Xaml.XamlTypeInfo.h>
 #if __has_include("winrt\Microsoft.UI.Xaml.Controls.Primitives.h")
 #include <winrt\Microsoft.UI.Xaml.Controls.Primitives.h>
 #endif
 
+#if __has_include("winrt\Microsoft.UI.Xaml.Media.h")
 #include <winrt\Microsoft.UI.Xaml.Media.h>
+#endif
+
+#if __has_include("winrt\Microsoft.UI.Xaml.Automation.Peers.h")
 #include <winrt\Microsoft.UI.Xaml.Automation.Peers.h>
 #endif
+
+#if __has_include("winrt\Microsoft.UI.Composition.Effects.h")
 #include <winrt\Microsoft.UI.Composition.Effects.h>
+#endif
 
 namespace winrt
 {
@@ -186,7 +196,10 @@ namespace winrt
         using namespace ::winrt::Windows::UI::Xaml::Automation::Peers::factory_implementation;
     }
 #endif
+
+#ifdef EFFECTS_INCLUDED
     using namespace ::winrt::Microsoft::UI::Composition::Effects;
+#endif
 
     // using namespace ::winrt::Windows::UI::Xaml::Controls;
     using AppBar = winrt::Windows::UI::Xaml::Controls::AppBar;
@@ -222,6 +235,7 @@ namespace winrt
     using IconSourceElement = winrt::Windows::UI::Xaml::Controls::IconSourceElement;
     using IContentControlFactory = winrt::Windows::UI::Xaml::Controls::IContentControlFactory;
     using IControl5 = ::winrt::Windows::UI::Xaml::Controls::IControl5;
+    using IControl7 = ::winrt::Windows::UI::Xaml::Controls::IControl7;
     using IControlFactory = winrt::Windows::UI::Xaml::Controls::IControlFactory;
     using IControlProtected = ::winrt::Windows::UI::Xaml::Controls::IControlProtected;
     using IDataTemplateSelectorFactory = winrt::Windows::UI::Xaml::Controls::IDataTemplateSelectorFactory;
@@ -337,6 +351,7 @@ namespace winrt
     using Popup = winrt::Windows::UI::Xaml::Controls::Primitives::Popup;
     using IPopup3 = winrt::Windows::UI::Xaml::Controls::Primitives::IPopup3;
     using RangeBaseValueChangedEventArgs = winrt::Windows::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs;
+    using RepeatButton = winrt::Windows::UI::Xaml::Controls::Primitives::RepeatButton;
     using ScrollBar = winrt::Windows::UI::Xaml::Controls::Primitives::ScrollBar;
     using ScrollEventArgs = winrt::Windows::UI::Xaml::Controls::Primitives::ScrollEventArgs;
     using ScrollEventType = winrt::Windows::UI::Xaml::Controls::Primitives::ScrollEventType;

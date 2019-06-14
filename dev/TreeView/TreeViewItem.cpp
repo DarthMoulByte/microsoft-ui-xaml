@@ -287,33 +287,6 @@ void TreeViewItem::OnApplyTemplate()
     __super::OnApplyTemplate();
 }
 
-void TreeViewItem::UpdateSelection(TreeNodeSelectionState const& state)
-{
-    if (auto treeView = AncestorTreeView())
-    {
-        if (auto listControl = treeView->ListControl())
-        {
-            if (listControl->IsMultiselect())
-            {
-                if (auto node = TreeNode())
-                {
-                    listControl->ListViewModel()->UpdateSelection(node, state);
-                    UpdateMultipleSelection(state);
-                }
-            }
-            else
-            {
-                // Single selection, just set it in ListView.
-                auto index = listControl->IndexFromContainer(*this);
-                if (index >= 0)
-                {
-                    listControl->SelectedIndex(index);
-                }
-            }
-        }
-    }
-}
-
 template<typename T>
 T TreeViewItem::GetAncestorView()
 {
@@ -462,40 +435,57 @@ void TreeViewItem::RaiseSelectionChangeEvents(bool isSelected)
     }
 }
 
-void TreeViewItem::OnIsSelectedChanged(const winrt::DependencyObject& /*sender*/, const winrt::DependencyProperty& args)
+void TreeViewItem::UpdateSelection(TreeNodeSelectionState const& state)
 {
-    bool isSelected = unbox_value<bool>(GetValue(args));
     if (auto treeView = AncestorTreeView())
     {
-        auto listControl = treeView->ListControl();
-        bool isMultiselect = listControl->IsMultiselect();
-        auto viewModel = listControl->ListViewModel();
-
-        // Checkbox is only used in multi-select mode
-        if (isMultiselect && isSelected != m_selectionBox.get().IsChecked().Value())
+        if (auto listControl = treeView->ListControl())
         {
-            m_selectionBox.get().IsChecked(isSelected);
-        }
-
-        if (auto node = TreeNode())
-        {
-            auto selectedNodes = viewModel->GetSelectedNodes();
-
-            if (!isMultiselect)
+            if (listControl->IsMultiselect())
             {
-                selectedNodes.Clear();
-            }
-
-            if (isSelected)
-            {
-                selectedNodes.Append(node);
+                if (auto node = TreeNode())
+                {
+                    UpdateMultipleSelection(state);
+                }
             }
             else
             {
-                unsigned int index;
-                if (selectedNodes.IndexOf(node, index))
+                auto viewModel = listControl->ListViewModel();
+                auto node = TreeNode();
+                auto isNodeSelected = viewModel->IsNodeSelected(node);
+                if (isNodeSelected != IsSelected())
                 {
-                    selectedNodes.RemoveAt(index);
+                    IsSelected(isNodeSelected);
+                }
+            }
+        }
+    }
+}
+
+void TreeViewItem::OnIsSelectedChanged(const winrt::DependencyObject& /*sender*/, const winrt::DependencyProperty& args)
+{
+    bool isSelected = unbox_value<bool>(GetValue(args));
+    //UpdateSelection(isSelected ? TreeNodeSelectionState::Selected : TreeNodeSelectionState::UnSelected);
+    if (auto treeView = AncestorTreeView())
+    {
+        if (auto node = TreeNode())
+        {
+            auto listControl = treeView->ListControl();
+            auto viewModel = listControl->ListViewModel();
+            if (isSelected != viewModel->IsNodeSelected(node))
+            {
+                auto selectedNodes = viewModel->GetSelectedNodes();
+                if (isSelected)
+                {
+                    selectedNodes.Append(node);
+                }
+                else
+                {
+                    unsigned int index;
+                    if (selectedNodes.IndexOf(node, index))
+                    {
+                        selectedNodes.RemoveAt(index);
+                    }
                 }
             }
         }
